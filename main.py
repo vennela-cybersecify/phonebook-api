@@ -89,17 +89,34 @@ def signup(request: SignupRequest, db: Session = Depends(get_db)):
 
 
 @app.post("/auth/login", tags=["Auth"])
-def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db),
-):
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    print("LOGIN START")
+    print("Username received:", form_data.username)
+
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
-    if not user or not auth.verify_password(form_data.password, user.hashed_password):
+    print("User found:", bool(user))
+
+    if not user:
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
-    token = auth.create_access_token(data={"sub": user.username})
-    return {"access_token": token, "token_type": "bearer"}
+    try:
+        password_ok = auth.verify_password(form_data.password, user.hashed_password)
+        print("Password verify result:", password_ok)
+    except Exception as e:
+        print("PASSWORD VERIFY ERROR:", repr(e))
+        raise
 
+    if not password_ok:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    try:
+        token = auth.create_access_token(data={"sub": user.username})
+        print("TOKEN CREATED")
+    except Exception as e:
+        print("TOKEN CREATION ERROR:", repr(e))
+        raise
+
+    return {"access_token": token, "token_type": "bearer"}
 
 # -------------------------------------------------------
 # 5. PHONEBOOK ENDPOINTS
